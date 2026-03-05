@@ -55,51 +55,11 @@ func (a *GoTgBotClientAdapter) FetchBotProfile(ctx context.Context, token string
 		username = utils.Ptr(botUser.Username)
 	}
 
-	photoFileID, err := fetchHighestResolutionPhotoFileID(ctx, bot, botUser.Id)
-	if err != nil {
-		if isUnauthorizedError(err) {
-			return nil, errs.ErrTelegramBotTokenInvalid
-		}
-
-		return nil, err
-	}
-
 	return &servicebot.TelegramBotProfileDTO{
-		ID:          botUser.Id,
-		Name:        botUser.FirstName,
-		Username:    username,
-		PhotoFileID: photoFileID,
+		ID:       botUser.Id,
+		Name:     botUser.FirstName,
+		Username: username,
 	}, nil
-}
-
-func fetchHighestResolutionPhotoFileID(ctx context.Context, bot *gotgbot.Bot, userID int64) (*string, error) {
-	photos, err := bot.GetUserProfilePhotosWithContext(ctx, userID, &gotgbot.GetUserProfilePhotosOpts{
-		Limit:       1,
-		RequestOpts: &gotgbot.RequestOpts{Timeout: 10 * time.Second},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if photos == nil || len(photos.Photos) == 0 || len(photos.Photos[0]) == 0 {
-		return nil, nil
-	}
-
-	best := photos.Photos[0][0]
-	bestPixels := best.Width * best.Height
-	for _, photoSize := range photos.Photos[0][1:] {
-		pixels := photoSize.Width * photoSize.Height
-		if pixels > bestPixels {
-			best = photoSize
-			bestPixels = pixels
-		}
-	}
-
-	if strings.TrimSpace(best.FileId) == "" {
-		return nil, nil
-	}
-
-	return utils.Ptr(best.FileId), nil
 }
 
 func isUnauthorizedError(err error) bool {
