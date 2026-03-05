@@ -34,6 +34,10 @@ func TestNewBotSuccess(t *testing.T) {
 		t.Fatalf("expected token %q, got %q", "123:ABC", bot.Token)
 	}
 
+	if bot.OAuthClientID != nil {
+		t.Fatalf("expected nil oauth client id for a new bot")
+	}
+
 	if bot.CreatedAt.IsZero() {
 		t.Fatalf("expected non-zero createdAt")
 	}
@@ -279,7 +283,7 @@ func TestRestoreBotWithNullableUpdatedAt(t *testing.T) {
 
 	createdAt := time.Now().UTC().Add(-time.Minute)
 
-	bot, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", createdAt, nil)
+	bot, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", nil, createdAt, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -295,7 +299,7 @@ func TestRestoreBotUpdatedAtBeforeCreatedAt(t *testing.T) {
 	createdAt := time.Now().UTC()
 	updatedAt := createdAt.Add(-time.Second)
 
-	_, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", createdAt, &updatedAt)
+	_, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", nil, createdAt, &updatedAt)
 	if !errors.Is(err, apperrors.ErrBotUpdatedBeforeCreate) {
 		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUpdatedBeforeCreate, err)
 	}
@@ -316,5 +320,86 @@ func TestBotSetUsernameNil(t *testing.T) {
 
 	if bot.Username != nil {
 		t.Fatalf("expected nil username after update")
+	}
+}
+
+func TestBotBindAndUnbindOAuthClient(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_bot"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.BindOAuthClient("hydra-client-1")
+	if err != nil {
+		t.Fatalf("expected no error while binding oauth client, got %v", err)
+	}
+
+	if bot.OAuthClientID == nil || *bot.OAuthClientID != "hydra-client-1" {
+		t.Fatalf("expected oauth client id hydra-client-1, got %v", bot.OAuthClientID)
+	}
+
+	if bot.UpdatedAt == nil {
+		t.Fatalf("expected non-nil updatedAt after binding oauth client")
+	}
+
+	updatedAtAfterBind := *bot.UpdatedAt
+	time.Sleep(2 * time.Millisecond)
+
+	err = bot.UnbindOAuthClient()
+	if err != nil {
+		t.Fatalf("expected no error while unbinding oauth client, got %v", err)
+	}
+
+	if bot.OAuthClientID != nil {
+		t.Fatalf("expected nil oauth client id after unbind")
+	}
+
+	if bot.UpdatedAt == nil || !bot.UpdatedAt.After(updatedAtAfterBind) {
+		t.Fatalf("expected updatedAt to be updated after unbind")
+	}
+}
+
+func TestBotBindOAuthClientValidation(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_bot"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.BindOAuthClient("   ")
+	if !errors.Is(err, apperrors.ErrBotOAuthClientIDInvalid) {
+		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDInvalid, err)
+	}
+
+	err = bot.BindOAuthClient(" hydra-client ")
+	if !errors.Is(err, apperrors.ErrBotOAuthClientIDOuterSpaces) {
+		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDOuterSpaces, err)
+	}
+}
+
+func TestRestoreBotWithOAuthClientID(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Now().UTC().Add(-time.Minute)
+	oauthClientID := "hydra-client-1"
+
+	bot, err := model.RestoreBot(
+		1,
+		"OIDC Bot",
+		utils.Ptr("oidc_login_bot"),
+		"123:ABC",
+		&oauthClientID,
+		createdAt,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.OAuthClientID == nil || *bot.OAuthClientID != "hydra-client-1" {
+		t.Fatalf("expected oauth client id hydra-client-1, got %v", bot.OAuthClientID)
 	}
 }

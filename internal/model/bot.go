@@ -19,12 +19,13 @@ var (
 // Fields are public for explicit model visibility, while domain methods enforce
 // invariants without implicit normalization.
 type Bot struct {
-	ID        int64
-	Name      string
-	Username  *string
-	Token     string
-	CreatedAt time.Time
-	UpdatedAt *time.Time
+	ID            int64
+	Name          string
+	Username      *string
+	Token         string
+	OAuthClientID *string
+	CreatedAt     time.Time
+	UpdatedAt     *time.Time
 }
 
 // NewBot creates a new Bot with immutable creation time.
@@ -52,17 +53,26 @@ func NewBot(id int64, name string, username *string, token string) (*Bot, error)
 	}
 
 	return &Bot{
-		ID:        id,
-		Name:      name,
-		Username:  utils.PtrClone(username),
-		Token:     token,
-		CreatedAt: now,
-		UpdatedAt: nil,
+		ID:            id,
+		Name:          name,
+		Username:      utils.PtrClone(username),
+		Token:         token,
+		OAuthClientID: nil,
+		CreatedAt:     now,
+		UpdatedAt:     nil,
 	}, nil
 }
 
 // RestoreBot restores Bot from persistence while validating all invariants.
-func RestoreBot(id int64, name string, username *string, token string, createdAt time.Time, updatedAt *time.Time) (*Bot, error) {
+func RestoreBot(
+	id int64,
+	name string,
+	username *string,
+	token string,
+	oauthClientID *string,
+	createdAt time.Time,
+	updatedAt *time.Time,
+) (*Bot, error) {
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
@@ -79,6 +89,10 @@ func RestoreBot(id int64, name string, username *string, token string, createdAt
 		return nil, err
 	}
 
+	if err := validateOAuthClientID(oauthClientID); err != nil {
+		return nil, err
+	}
+
 	if createdAt.IsZero() {
 		return nil, errs.ErrBotCreatedAtInvalid
 	}
@@ -88,12 +102,13 @@ func RestoreBot(id int64, name string, username *string, token string, createdAt
 	}
 
 	return &Bot{
-		ID:        id,
-		Name:      name,
-		Username:  utils.PtrClone(username),
-		Token:     token,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		ID:            id,
+		Name:          name,
+		Username:      utils.PtrClone(username),
+		Token:         token,
+		OAuthClientID: utils.PtrClone(oauthClientID),
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
 	}, nil
 }
 
@@ -146,6 +161,40 @@ func (b *Bot) SetToken(token string) error {
 	}
 
 	b.Token = token
+
+	if err := b.touch(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// BindOAuthClient binds external OAuth client identifier (for example, Ory Hydra client ID).
+func (b *Bot) BindOAuthClient(clientID string) error {
+	if b.OAuthClientID != nil && *b.OAuthClientID == clientID {
+		return nil
+	}
+
+	if err := validateOAuthClientID(utils.Ptr(clientID)); err != nil {
+		return err
+	}
+
+	b.OAuthClientID = utils.Ptr(clientID)
+
+	if err := b.touch(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UnbindOAuthClient removes external OAuth client binding from bot.
+func (b *Bot) UnbindOAuthClient() error {
+	if b.OAuthClientID == nil {
+		return nil
+	}
+
+	b.OAuthClientID = nil
 
 	if err := b.touch(); err != nil {
 		return err
@@ -283,6 +332,22 @@ func validateToken(token string) error {
 
 	if token != strings.TrimSpace(token) {
 		return errs.ErrBotTokenOuterSpaces
+	}
+
+	return nil
+}
+
+func validateOAuthClientID(clientID *string) error {
+	if clientID == nil {
+		return nil
+	}
+
+	if strings.TrimSpace(*clientID) == "" {
+		return errs.ErrBotOAuthClientIDInvalid
+	}
+
+	if *clientID != strings.TrimSpace(*clientID) {
+		return errs.ErrBotOAuthClientIDOuterSpaces
 	}
 
 	return nil
