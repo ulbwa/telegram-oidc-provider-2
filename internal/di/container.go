@@ -3,7 +3,7 @@ package di
 import (
 	"github.com/samber/do/v2"
 
-	"github.com/ulbwa/go-backend-template/internal/config"
+	"github.com/ulbwa/telegram-oidc-provider/internal/config"
 )
 
 func NewContainer(cfg *config.Config) do.Injector {

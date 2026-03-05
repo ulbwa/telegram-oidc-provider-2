@@ -1,4 +1,4 @@
-module github.com/ulbwa/go-backend-template
+module github.com/ulbwa/telegram-oidc-provider
 
 go 1.26.0
 
