@@ -1,0 +1,320 @@
+package tests
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	apperrors "github.com/ulbwa/telegram-oidc-provider/internal/errors"
+	"github.com/ulbwa/telegram-oidc-provider/internal/model"
+	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
+)
+
+func TestNewBotSuccess(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(123456, "OIDC Login Bot", utils.Ptr("oidc_login_bot"), "123:ABC")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.ID != 123456 {
+		t.Fatalf("expected id 123456, got %d", bot.ID)
+	}
+
+	if bot.Name != "OIDC Login Bot" {
+		t.Fatalf("expected name %q, got %q", "OIDC Login Bot", bot.Name)
+	}
+
+	if bot.Username == nil || *bot.Username != "oidc_login_bot" {
+		t.Fatalf("expected username %q, got %v", "oidc_login_bot", bot.Username)
+	}
+
+	if bot.Token != "123:ABC" {
+		t.Fatalf("expected token %q, got %q", "123:ABC", bot.Token)
+	}
+
+	if bot.CreatedAt.IsZero() {
+		t.Fatalf("expected non-zero createdAt")
+	}
+
+	if bot.UpdatedAt != nil {
+		t.Fatalf("expected nil updatedAt for a new bot")
+	}
+}
+
+func TestNewBotValidation(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		id       int64
+		botName  string
+		username *string
+		token    string
+		expected error
+	}{
+		{
+			name:     "invalid id",
+			id:       0,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("oidc_login_bot"),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotInvalidID,
+		},
+		{
+			name:     "empty name",
+			id:       1,
+			botName:  "   ",
+			username: utils.Ptr("oidc_login_bot"),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotNameRequired,
+		},
+		{
+			name:     "name with trailing space",
+			id:       1,
+			botName:  "OIDC Bot ",
+			username: utils.Ptr("oidc_login_bot"),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotNameHasOuterSpaces,
+		},
+		{
+			name:     "invalid username format",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("bad-name"),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotUsernameInvalid,
+		},
+		{
+			name:     "username too short",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("ab"),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotUsernameInvalid,
+		},
+		{
+			name:     "username without bot suffix is allowed",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("oidc_login_user"),
+			token:    "123:ABC",
+			expected: nil,
+		},
+		{
+			name:     "username can be nil",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: nil,
+			token:    "123:ABC",
+			expected: nil,
+		},
+		{
+			name:     "username with trailing space",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("oidc_login_bot "),
+			token:    "123:ABC",
+			expected: apperrors.ErrBotUsernameOuterSpaces,
+		},
+		{
+			name:     "empty token",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("oidc_login_bot"),
+			token:    "",
+			expected: apperrors.ErrBotTokenRequired,
+		},
+		{
+			name:     "token with trailing space",
+			id:       1,
+			botName:  "OIDC Bot",
+			username: utils.Ptr("oidc_login_bot"),
+			token:    "123:ABC ",
+			expected: apperrors.ErrBotTokenOuterSpaces,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := model.NewBot(testCase.id, testCase.botName, testCase.username, testCase.token)
+			if testCase.expected == nil {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+
+				return
+			}
+
+			if !errors.Is(err, testCase.expected) {
+				t.Fatalf("expected error %v, got %v", testCase.expected, err)
+			}
+		})
+	}
+}
+
+func TestBotUpdateProfileAndSetToken(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "Old Bot", utils.Ptr("old_login_bot"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.UpdateProfile("New Bot", utils.Ptr("new_login_bot"))
+	if err != nil {
+		t.Fatalf("expected no error while updating profile, got %v", err)
+	}
+
+	if bot.Name != "New Bot" {
+		t.Fatalf("expected name %q, got %q", "New Bot", bot.Name)
+	}
+
+	if bot.Username == nil || *bot.Username != "new_login_bot" {
+		t.Fatalf("expected username %q, got %v", "new_login_bot", bot.Username)
+	}
+
+	if bot.UpdatedAt == nil {
+		t.Fatalf("expected non-nil updatedAt after profile update")
+	}
+
+	profileUpdatedAt := *bot.UpdatedAt
+
+	time.Sleep(2 * time.Millisecond)
+	err = bot.SetToken("222:NEW")
+	if err != nil {
+		t.Fatalf("expected no error while setting token, got %v", err)
+	}
+
+	if bot.Token != "222:NEW" {
+		t.Fatalf("expected token %q, got %q", "222:NEW", bot.Token)
+	}
+
+	if bot.UpdatedAt == nil {
+		t.Fatalf("expected non-nil updatedAt after token rotation")
+	}
+
+	if !bot.UpdatedAt.After(profileUpdatedAt) {
+		t.Fatalf("expected updatedAt %v to be after %v", *bot.UpdatedAt, profileUpdatedAt)
+	}
+}
+
+func TestBotLastModifiedAt(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !bot.LastModifiedAt().Equal(bot.CreatedAt) {
+		t.Fatalf("expected last modified to equal createdAt")
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	err = bot.SetToken("222:NEW")
+	if err != nil {
+		t.Fatalf("expected no error while setting token, got %v", err)
+	}
+
+	if bot.UpdatedAt == nil {
+		t.Fatalf("expected non-nil updatedAt after token change")
+	}
+
+	if !bot.LastModifiedAt().Equal(*bot.UpdatedAt) {
+		t.Fatalf("expected last modified to equal updatedAt")
+	}
+}
+
+func TestBotMaskedToken(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "123456:ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.MaskedToken() != "123456:********************UVWXYZ" {
+		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
+	}
+}
+
+func TestBotMaskedTokenShortSecret(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "123456:ABC")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.MaskedToken() != "123456:****ABC" {
+		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
+	}
+}
+
+func TestBotUpdateProfileNoChangesReturnsNilAndDoesNotTouch(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_bot"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.UpdateProfile("OIDC Bot", utils.Ptr("oidc_login_bot"))
+	if err != nil {
+		t.Fatalf("expected no error on no-op profile update, got %v", err)
+	}
+
+	if bot.UpdatedAt != nil {
+		t.Fatalf("expected updatedAt to stay nil on no-op update")
+	}
+}
+
+func TestRestoreBotWithNullableUpdatedAt(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Now().UTC().Add(-time.Minute)
+
+	bot, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", createdAt, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.UpdatedAt != nil {
+		t.Fatalf("expected nil updatedAt for restored bot")
+	}
+}
+
+func TestRestoreBotUpdatedAtBeforeCreatedAt(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Now().UTC()
+	updatedAt := createdAt.Add(-time.Second)
+
+	_, err := model.RestoreBot(1, "OIDC Bot", utils.Ptr("oidc_login_bot"), "123:ABC", createdAt, &updatedAt)
+	if !errors.Is(err, apperrors.ErrBotUpdatedBeforeCreate) {
+		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUpdatedBeforeCreate, err)
+	}
+}
+
+func TestBotSetUsernameNil(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_bot"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.SetUsername(nil)
+	if err != nil {
+		t.Fatalf("expected no error while setting nil username, got %v", err)
+	}
+
+	if bot.Username != nil {
+		t.Fatalf("expected nil username after update")
+	}
+}
