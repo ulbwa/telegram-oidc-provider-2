@@ -1,0 +1,9 @@
+{
+    "files.exclude": {
+        "**/bin/**": true
+    },
+    "chat.useAgentsMdFile": true,
+    "chat.tools.terminal.autoApprove": {
+        "task": true
+    }
+}

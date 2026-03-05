@@ -1,0 +1,147 @@
+version: "3"
+
+vars:
+  BIN_DIR: "{{.ROOT_DIR}}/bin"
+  GOLANGCI_LINT: "{{.BIN_DIR}}/golangci-lint"
+  GOVULNCHECK: "{{.BIN_DIR}}/govulncheck"
+  GO_ENUM: "{{.BIN_DIR}}/go-enum"
+  GCI: "{{.BIN_DIR}}/gci"
+  GOFUMPT: "{{.BIN_DIR}}/gofumpt"
+  DBMATE: "{{.BIN_DIR}}/dbmate"
+
+tasks:
+  install-formatters:
+    desc: Install formatters gci and gofumpt into {{.BIN_DIR}}
+    cmds:
+      - |
+        [ -x {{.GCI}} ] || {
+          echo "[install-formatters] installing gci from go.mod tools"
+          mkdir -p "{{.BIN_DIR}}"
+          GOBIN="{{.BIN_DIR}}" go install github.com/daixiang0/gci
+        }
+        [ -x {{.GOFUMPT}} ] || {
+          echo "[install-formatters] installing gofumpt from go.mod tools"
+          mkdir -p "{{.BIN_DIR}}"
+          GOBIN="{{.BIN_DIR}}" go install mvdan.cc/gofumpt
+        }
+    status:
+      - test -x "{{.GCI}}"
+      - test -x "{{.GOFUMPT}}"
+
+  format:
+    desc: Run formatters gci and gofumpt using local binaries from {{.BIN_DIR}}
+    deps: [install-formatters]
+    cmds:
+      - |
+        echo "[format] running gofumpt"
+        find . -type f -name '*.go' -exec {{.GOFUMPT}} -extra -w {} +
+      - |
+        echo "[format] running gci"
+        find . -type f -name '*.go' -exec {{.GCI}} write -s standard -s default -s localmodule {} +
+
+  install-golangci-lint:
+    desc: Install golangci-lint into {{.BIN_DIR}}
+    cmds:
+      - |
+        [ -x {{.GOLANGCI_LINT}} ] || {
+          mkdir -p "{{.BIN_DIR}}"
+          echo "[install-golangci-lint] installing golangci-lint from go.mod tools"
+          GOBIN="{{.BIN_DIR}}" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+          echo "[install-golangci-lint] installed: {{.GOLANGCI_LINT}}"
+        }
+    status:
+      - test -x "{{.GOLANGCI_LINT}}"
+
+  lint:
+    desc: Run golangci-lint using local binary from {{.BIN_DIR}}
+    deps: [install-golangci-lint]
+    cmds:
+      - |
+        echo "[lint] running golangci-lint"
+        {{.GOLANGCI_LINT}} run ./... --config .golangci.yml
+
+  test:
+    desc: Run Go tests
+    cmds:
+      - |
+        echo "[test] running go test ./..."
+        go test ./...
+
+  install-govulncheck:
+    desc: Install govulncheck into {{.BIN_DIR}}
+    cmds:
+      - |
+        [ -x {{.GOVULNCHECK}} ] || {
+          mkdir -p "{{.BIN_DIR}}"
+          echo "[install-govulncheck] installing govulncheck from go.mod tools"
+          GOBIN="{{.BIN_DIR}}" go install golang.org/x/vuln/cmd/govulncheck
+          echo "[install-govulncheck] installed: {{.GOVULNCHECK}}"
+        }
+    status:
+      - test -x "{{.GOVULNCHECK}}"
+
+  vuln:
+    desc: Run govulncheck using local binary from {{.BIN_DIR}}
+    deps: [install-govulncheck]
+    cmds:
+      - |
+        echo "[vuln] running govulncheck"
+        {{.GOVULNCHECK}} ./...
+
+  install-go-enum:
+    desc: Install go-enum into {{.BIN_DIR}}
+    cmds:
+      - |
+        [ -x {{.GO_ENUM}} ] || {
+          mkdir -p "{{.BIN_DIR}}"
+          echo "[install-go-enum] installing go-enum from go.mod tools"
+          GOBIN="{{.BIN_DIR}}" go install github.com/abice/go-enum
+          echo "[install-go-enum] installed: {{.GO_ENUM}}"
+        }
+    status:
+      - test -x "{{.GO_ENUM}}"
+
+  generate:
+    desc: Run code generation
+    deps: [install-go-enum]
+    cmds:
+      - |
+        echo "[generate] running go generate ./..."
+        PATH="{{.BIN_DIR}}:$PATH" go generate ./...
+
+  install-dbmate:
+    desc: Install dbmate into {{.BIN_DIR}}
+    cmds:
+      - |
+        [ -x {{.DBMATE}} ] || {
+          mkdir -p "{{.BIN_DIR}}"
+          echo "[install-dbmate] installing dbmate from go.mod tools"
+          GOBIN="{{.BIN_DIR}}" go install github.com/amacneil/dbmate/v2
+          echo "[install-dbmate] installed: {{.DBMATE}}"
+        }
+    status:
+      - test -x "{{.DBMATE}}"
+
+  migration-new:
+    desc: Create new migration (task migration-new -- <name>)
+    deps: [install-dbmate]
+    cmds:
+      - |
+        echo "[migration-new] running dbmate new {{.CLI_ARGS}}"
+        {{.DBMATE}} new {{.CLI_ARGS}}
+
+  migration-up:
+    desc: Run migrations up
+    deps: [install-dbmate]
+    cmds:
+      - |
+        echo "[migration-up] running dbmate up"
+        {{.DBMATE}} up
+
+  migration-down:
+    desc: Run migrations down
+    deps: [install-dbmate]
+    cmds:
+      - |
+        echo "[migration-down] running dbmate down"
+        {{.DBMATE}} down

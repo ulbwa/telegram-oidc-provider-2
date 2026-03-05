@@ -1,0 +1,78 @@
+# Logging configuration.
+logger:
+  # Global log level (trace, debug, info, warn, error, fatal, panic).
+  level: info
+
+  # Time format (unix, unixms, unixmicro, rfc3339, rfc3339nano).
+  time_format: rfc3339
+
+  # Console output settings.
+  console:
+    # Enable or disable console output.
+    enabled: true
+
+    # Minimum log level (uses global level if empty).
+    level: debug
+
+    # Maximum log level (optional, for filtering).
+    max_level: error
+
+    # Use colored output.
+    colored: true
+
+    # Format logs in a human-readable form (not JSON).
+    pretty: true
+
+  # List of file log handlers.
+  files:
+    - # Path to the log file.
+      path: ./logs/app.log
+
+      # Minimum log level (uses global level if empty).
+      level: info
+
+      # Maximum log level (optional, for filtering).
+      max_level: panic
+
+      # Log rotation settings.
+      rotate:
+        # Enable log rotation.
+        enabled: true
+
+        # Maximum file size in megabytes.
+        max_size: 100
+
+        # Maximum file age in days.
+        max_age: 30
+
+        # Maximum number of old log files to keep.
+        max_backups: 10
+
+        # Compress old log files.
+        compress: true
+
+    - # Path to the log file.
+      path: ./logs/error.log
+
+      # Minimum log level (uses global level if empty).
+      level: error
+
+      # Maximum log level (optional, for filtering).
+      max_level: panic
+
+      # Log rotation settings.
+      rotate:
+        # Enable log rotation.
+        enabled: false
+
+        # Maximum file size in megabytes.
+        max_size: null
+
+        # Maximum file age in days.
+        max_age: null
+
+        # Maximum number of old log files to keep.
+        max_backups: null
+
+        # Compress old log files.
+        compress: false
