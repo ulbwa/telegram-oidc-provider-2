@@ -3,7 +3,6 @@ package telegram
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"time"
 
@@ -14,28 +13,24 @@ import (
 	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
 )
 
-type GoTgBotClientAdapter struct {
-	gotgbot.BotClient
+type goTgBotClientAdapter struct {
+	botClient gotgbot.BotClient
 }
 
-func NewGoTgBotClientAdapter(botClient gotgbot.BotClient) *GoTgBotClientAdapter {
+func NewGoTgBotClientAdapter(botClient gotgbot.BotClient) (servicebot.TelegramProvider, error) {
 	if botClient == nil {
-		botClient = &gotgbot.BaseBotClient{Client: http.Client{}}
+		return nil, errors.New("telegram bot client is nil")
 	}
 
-	return &GoTgBotClientAdapter{BotClient: botClient}
+	return &goTgBotClientAdapter{botClient: botClient}, nil
 }
 
-func (a *GoTgBotClientAdapter) FetchBotProfile(ctx context.Context, token string) (*servicebot.TelegramBotProfileDTO, error) {
+func (a *goTgBotClientAdapter) FetchBotProfile(ctx context.Context, token string) (*servicebot.TelegramBotProfileDTO, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, errs.ErrTelegramBotTokenInvalid
 	}
 
-	if a.BotClient == nil {
-		a.BotClient = &gotgbot.BaseBotClient{Client: http.Client{}}
-	}
-
-	bot := &gotgbot.Bot{Token: token, BotClient: a.BotClient}
+	bot := &gotgbot.Bot{Token: token, BotClient: a.botClient}
 
 	botUser, err := bot.GetMeWithContext(ctx, &gotgbot.GetMeOpts{RequestOpts: &gotgbot.RequestOpts{Timeout: 10 * time.Second}})
 	if err != nil {
