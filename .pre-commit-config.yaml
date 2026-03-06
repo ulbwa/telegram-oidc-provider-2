@@ -1,0 +1,38 @@
+minimum_pre_commit_version: "3.0.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: format
+        name: task format
+        entry: task format
+        language: system
+        pass_filenames: false
+
+      - id: lint
+        name: task lint
+        entry: task lint
+        language: system
+        pass_filenames: false
+
+      - id: test
+        name: task test (pre-push)
+        entry: task test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: vuln
+        name: task vuln (pre-push)
+        entry: task vuln
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
