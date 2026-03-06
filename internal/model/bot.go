@@ -2,6 +2,7 @@ package model
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,12 @@ import (
 var (
 	botUsernamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`)
 	botNamePattern     = regexp.MustCompile(`^[\p{L}\p{N}_\- ]{1,128}$`)
+)
+
+const (
+	maskedTokenVisibleTail = 4
+	maskedTokenMinHidden   = 8
+	maskedTokenPrefix      = "************"
 )
 
 // Bot is a rich domain entity for Telegram bot credentials used by OIDC flows.
@@ -204,29 +211,41 @@ func (b *Bot) UnbindOAuthClient() error {
 }
 
 // MaskedToken keeps bot ID prefix before ':' and masks the secret part,
-// preserving only the last 6 secret characters.
+// preserving only a very small trailing part of the secret.
+// Bot ID before ':' is shown only when it is a valid positive int64.
 func (b *Bot) MaskedToken() string {
 	parts := strings.SplitN(b.Token, ":", 2)
-	if len(parts) != 2 || parts[0] == "" {
-		tokenLength := len(b.Token)
-		if tokenLength <= 6 {
-			return "****"
-		}
-
-		return strings.Repeat("*", tokenLength-6) + b.Token[tokenLength-6:]
+	if len(parts) != 2 {
+		return maskTokenPart(b.Token)
 	}
 
-	secret := parts[1]
-	if len(secret) <= 6 {
-		return parts[0] + ":****" + secret
+	botID, ok := parseValidTokenBotID(parts[0])
+	if !ok {
+		return maskTokenPart(b.Token)
 	}
 
-	maskedSecret := strings.Repeat("*", len(secret)-6) + secret[len(secret)-6:]
-	if maskedSecret == "" {
-		return "****"
+	return botID + ":" + maskTokenPart(parts[1])
+}
+
+func parseValidTokenBotID(raw string) (string, bool) {
+	if raw == "" {
+		return "", false
 	}
 
-	return parts[0] + ":" + maskedSecret
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return "", false
+	}
+
+	return raw, true
+}
+
+func maskTokenPart(secret string) string {
+	if len(secret) <= maskedTokenVisibleTail+maskedTokenMinHidden {
+		return maskedTokenPrefix
+	}
+
+	return maskedTokenPrefix + secret[len(secret)-maskedTokenVisibleTail:]
 }
 
 // LastModifiedAt returns the latest change timestamp for this entity.

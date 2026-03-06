@@ -242,7 +242,7 @@ func TestBotMaskedToken(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if bot.MaskedToken() != "123456:********************UVWXYZ" {
+	if bot.MaskedToken() != "123456:************WXYZ" {
 		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
 	}
 }
@@ -255,7 +255,51 @@ func TestBotMaskedTokenShortSecret(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if bot.MaskedToken() != "123456:****ABC" {
+	if bot.MaskedToken() != "123456:************" {
+		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
+	}
+}
+
+func TestBotMaskedTokenTooShortToRevealTail(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "123456:ABCDE")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.MaskedToken() != "123456:************" {
+		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
+	}
+}
+
+func TestBotMaskedTokenBorderlineLengthDoesNotRevealTail(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "123456:ABCDEFGHIJKL")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.MaskedToken() != "123456:************" {
+		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
+	}
+}
+
+func TestBotMaskedTokenInvalidTokenBotID(t *testing.T) {
+	t.Parallel()
+
+	bot, err := model.NewBot(777, "OIDC Bot", utils.Ptr("oidc_login_user"), "111:OLD")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = bot.SetToken("abc:ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	if err != nil {
+		t.Fatalf("expected no error while setting token, got %v", err)
+	}
+
+	if bot.MaskedToken() != "************WXYZ" {
 		t.Fatalf("unexpected masked token: %q", bot.MaskedToken())
 	}
 }
