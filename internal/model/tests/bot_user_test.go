@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	errs "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	"github.com/ulbwa/telegram-oidc-provider/internal/model"
 	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
 )
@@ -47,37 +46,37 @@ func TestNewUserInfoValidation(t *testing.T) {
 		{
 			name:      "empty first name",
 			firstName: "",
-			expected:  errs.ErrUserFirstNameInvalid,
+			expected:  model.ErrUserInvalidFirstName,
 		},
 		{
 			name:      "username invalid",
 			firstName: "Ivan",
 			username:  utils.Ptr("!bad"),
-			expected:  errs.ErrUserUsernameInvalid,
+			expected:  model.ErrUserInvalidUsername,
 		},
 		{
 			name:      "username only spaces is invalid",
 			firstName: "Ivan",
 			username:  utils.Ptr("   "),
-			expected:  errs.ErrUserUsernameInvalid,
+			expected:  model.ErrUserInvalidUsername,
 		},
 		{
 			name:      "photo url invalid",
 			firstName: "Ivan",
 			photoURL:  utils.Ptr("ftp://example.com/photo.jpg"),
-			expected:  errs.ErrUserPhotoURLInvalid,
+			expected:  model.ErrUserInvalidPhotoURL,
 		},
 		{
 			name:      "last name has spaces",
 			firstName: "Ivan",
 			lastName:  utils.Ptr(" Petrov "),
-			expected:  errs.ErrUserLastNameInvalid,
+			expected:  model.ErrUserInvalidLastName,
 		},
 		{
 			name:      "last name only spaces is invalid",
 			firstName: "Ivan",
 			lastName:  utils.Ptr("   "),
-			expected:  errs.ErrUserLastNameInvalid,
+			expected:  model.ErrUserInvalidLastName,
 		},
 	}
 
@@ -227,8 +226,8 @@ func TestBotUserRecordLoginValidation(t *testing.T) {
 	}
 
 	err = botUser.RecordLogin("bad-ip", nil, utils.Ptr("bad_lang"))
-	if !errors.Is(err, errs.ErrBotUserLoginIPInvalid) {
-		t.Fatalf("expected error %v, got %v", errs.ErrBotUserLoginIPInvalid, err)
+	if !errors.Is(err, model.ErrBotUserInvalidIP) {
+		t.Fatalf("expected error %v, got %v", model.ErrBotUserInvalidIP, err)
 	}
 }
 

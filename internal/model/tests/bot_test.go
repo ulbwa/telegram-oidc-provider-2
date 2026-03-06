@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	apperrors "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	"github.com/ulbwa/telegram-oidc-provider/internal/model"
 )
 
@@ -63,7 +62,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotInvalidID,
+			expected: model.ErrBotInvalidID,
 		},
 		{
 			name:     "empty name",
@@ -71,7 +70,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "   ",
 			username: "oidc_login_bot",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotNameInvalid,
+			expected: model.ErrBotInvalidName,
 		},
 		{
 			name:     "name with trailing space",
@@ -79,7 +78,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot ",
 			username: "oidc_login_bot",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotNameInvalid,
+			expected: model.ErrBotInvalidName,
 		},
 		{
 			name:     "invalid username format",
@@ -87,7 +86,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "bad-name",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameInvalid,
+			expected: model.ErrBotInvalidUsername,
 		},
 		{
 			name:     "username too short",
@@ -95,7 +94,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "ab",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameInvalid,
+			expected: model.ErrBotInvalidUsername,
 		},
 		{
 			name:     "username without bot suffix is allowed",
@@ -111,7 +110,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameInvalid,
+			expected: model.ErrBotInvalidUsername,
 		},
 		{
 			name:     "username with trailing space",
@@ -119,7 +118,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot ",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameInvalid,
+			expected: model.ErrBotInvalidUsername,
 		},
 		{
 			name:     "empty token",
@@ -127,7 +126,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot",
 			token:    "",
-			expected: apperrors.ErrBotTokenInvalid,
+			expected: model.ErrBotInvalidToken,
 		},
 		{
 			name:     "token with trailing space",
@@ -135,7 +134,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot",
 			token:    "123:ABC ",
-			expected: apperrors.ErrBotTokenInvalid,
+			expected: model.ErrBotInvalidToken,
 		},
 	}
 
@@ -343,8 +342,8 @@ func TestRestoreBotUpdatedAtBeforeCreatedAt(t *testing.T) {
 	updatedAt := createdAt.Add(-time.Second)
 
 	_, err := model.RestoreBot(1, "OIDC Bot", "oidc_login_bot", "123:ABC", nil, createdAt, &updatedAt)
-	if !errors.Is(err, apperrors.ErrBotUpdatedBeforeCreate) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUpdatedBeforeCreate, err)
+	if !errors.Is(err, model.ErrBotUpdatedBeforeCreate) {
+		t.Fatalf("expected error %v, got %v", model.ErrBotUpdatedBeforeCreate, err)
 	}
 }
 
@@ -384,8 +383,8 @@ func TestBotSetUsernameEmpty(t *testing.T) {
 	}
 
 	err = bot.SetUsername("")
-	if !errors.Is(err, apperrors.ErrBotUsernameInvalid) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUsernameInvalid, err)
+	if !errors.Is(err, model.ErrBotInvalidUsername) {
+		t.Fatalf("expected error %v, got %v", model.ErrBotInvalidUsername, err)
 	}
 }
 
@@ -436,13 +435,13 @@ func TestBotBindOAuthClientValidation(t *testing.T) {
 	}
 
 	err = bot.BindOAuthClient("   ")
-	if !errors.Is(err, apperrors.ErrBotOAuthClientIDInvalid) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDInvalid, err)
+	if !errors.Is(err, model.ErrBotInvalidOAuthClientID) {
+		t.Fatalf("expected error %v, got %v", model.ErrBotInvalidOAuthClientID, err)
 	}
 
 	err = bot.BindOAuthClient(" hydra-client ")
-	if !errors.Is(err, apperrors.ErrBotOAuthClientIDInvalid) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDInvalid, err)
+	if !errors.Is(err, model.ErrBotInvalidOAuthClientID) {
+		t.Fatalf("expected error %v, got %v", model.ErrBotInvalidOAuthClientID, err)
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrBotInvalidData          = errors.New("bot data is invalid")
+	ErrBotInvalidData          = errors.New("bot is invalid")
 	ErrBotInvalidID            = fmt.Errorf("%w: ID is invalid", ErrBotInvalidData)
 	ErrBotInvalidName          = fmt.Errorf("%w: name is invalid", ErrBotInvalidData)
 	ErrBotInvalidUsername      = fmt.Errorf("%w: username is invalid", ErrBotInvalidData)
@@ -112,7 +112,7 @@ func RestoreBot(
 		return nil, ErrBotInvalidCreatedAt
 	}
 
-	if err := validateUpdatedAt(updatedAt, createdAt); err != nil {
+	if err := validateBotUpdatedAt(updatedAt, createdAt); err != nil {
 		return nil, err
 	}
 
@@ -364,7 +364,7 @@ func validateOAuthClientID(clientID *string) error {
 	return nil
 }
 
-func validateUpdatedAt(updatedAt *time.Time, createdAt time.Time) error {
+func validateBotUpdatedAt(updatedAt *time.Time, createdAt time.Time) error {
 	if updatedAt == nil {
 		return nil
 	}

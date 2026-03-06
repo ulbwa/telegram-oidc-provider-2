@@ -1,14 +1,34 @@
 package model
 
 import (
+	"errors"
+	"fmt"
 	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	errs "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
+)
+
+var (
+	ErrUserInvalidData      = errors.New("user is invalid")
+	ErrUserInvalidID        = fmt.Errorf("%w: ID is invalid", ErrUserInvalidData)
+	ErrUserInvalidFirstName = fmt.Errorf("%w: first name is invalid", ErrUserInvalidData)
+	ErrUserInvalidLastName  = fmt.Errorf("%w: last name is invalid", ErrUserInvalidData)
+	ErrUserInvalidUsername  = fmt.Errorf("%w: username is invalid", ErrUserInvalidData)
+	ErrUserInvalidPhotoURL  = fmt.Errorf("%w: photo URL is invalid", ErrUserInvalidData)
+
+	ErrBotUserInvalidData         = errors.New("bot user is invalid")
+	ErrBotUserInvalidBotID        = fmt.Errorf("%w: bot ID is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidUserID       = fmt.Errorf("%w: user ID is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidIP           = fmt.Errorf("%w: login IP is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidUserAgent    = fmt.Errorf("%w: login user agent is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidLanguage     = fmt.Errorf("%w: login language is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidCreatedAt    = fmt.Errorf("%w: created at is invalid", ErrBotUserInvalidData)
+	ErrBotUserInvalidUpdatedAt    = fmt.Errorf("%w: updated at is invalid", ErrBotUserInvalidData)
+	ErrBotUserUpdatedBeforeCreate = fmt.Errorf("%w: updated at cannot be before created at", ErrBotUserInvalidUpdatedAt)
 )
 
 var (
@@ -92,13 +112,13 @@ func NewBotUser(botID, userID int64, info UserInfo, loginIP string, userAgent, l
 		return nil, err
 	}
 
-	if err := validateLoginMetadata(loginIP, userAgent, language); err != nil {
+	if err := validateBotUserLoginMetadata(loginIP, userAgent, language); err != nil {
 		return nil, err
 	}
 
 	now := time.Now().UTC()
 	if now.IsZero() {
-		return nil, errs.ErrBotUserCreatedAtInvalid
+		return nil, ErrBotUserInvalidCreatedAt
 	}
 
 	return &BotUser{
@@ -111,6 +131,52 @@ func NewBotUser(botID, userID int64, info UserInfo, loginIP string, userAgent, l
 		LastLoginAt:        now,
 		CreatedAt:          now,
 		UpdatedAt:          nil,
+	}, nil
+}
+
+func RestoreBotUser(
+	botID, userID int64,
+	info UserInfo,
+	loginIP string,
+	userAgent, language *string,
+	lastLoginAt time.Time,
+	createdAt time.Time,
+	updatedAt *time.Time,
+) (*BotUser, error) {
+	if err := validateBotUserIDs(botID, userID); err != nil {
+		return nil, err
+	}
+
+	if err := validateUserInfo(info); err != nil {
+		return nil, err
+	}
+
+	if err := validateBotUserLoginMetadata(loginIP, userAgent, language); err != nil {
+		return nil, err
+	}
+
+	if lastLoginAt.IsZero() {
+		return nil, ErrBotUserInvalidCreatedAt
+	}
+
+	if createdAt.IsZero() {
+		return nil, ErrBotUserInvalidCreatedAt
+	}
+
+	if err := validateBotUserUpdatedAt(updatedAt, createdAt); err != nil {
+		return nil, err
+	}
+
+	return &BotUser{
+		BotID:              botID,
+		UserID:             userID,
+		Info:               info.clone(),
+		LastLoginIP:        loginIP,
+		LastLoginUserAgent: utils.PtrClone(userAgent),
+		LastLoginLanguage:  utils.PtrClone(language),
+		LastLoginAt:        lastLoginAt,
+		CreatedAt:          createdAt,
+		UpdatedAt:          utils.PtrClone(updatedAt),
 	}, nil
 }
 
@@ -129,13 +195,13 @@ func (u *BotUser) UpdateInfo(info UserInfo) error {
 }
 
 func (u *BotUser) RecordLogin(loginIP string, userAgent, language *string) error {
-	if err := validateLoginMetadata(loginIP, userAgent, language); err != nil {
+	if err := validateBotUserLoginMetadata(loginIP, userAgent, language); err != nil {
 		return err
 	}
 
 	now := time.Now().UTC()
 	if now.Before(u.CreatedAt) {
-		return errs.ErrBotUserLastLoginBeforeCreate
+		return ErrBotUserUpdatedBeforeCreate
 	}
 
 	u.LastLoginIP = loginIP
@@ -161,7 +227,7 @@ func (u *BotUser) LastModifiedAt() time.Time {
 func (u *BotUser) touch() error {
 	now := time.Now().UTC()
 	if now.Before(u.CreatedAt) {
-		return errs.ErrBotUserUpdatedBeforeCreate
+		return ErrBotUserUpdatedBeforeCreate
 	}
 
 	u.UpdatedAt = &now
@@ -170,12 +236,12 @@ func (u *BotUser) touch() error {
 }
 
 func validateBotUserIDs(botID, userID int64) error {
-	if botID <= 0 {
-		return errs.ErrBotUserInvalidBotID
+	if err := validateBotID(botID); err != nil {
+		return ErrBotUserInvalidBotID
 	}
 
-	if userID <= 0 {
-		return errs.ErrBotUserInvalidUserID
+	if err := validateUserID(userID); err != nil {
+		return ErrBotUserInvalidUserID
 	}
 
 	return nil
@@ -201,14 +267,22 @@ func validateUserInfo(info UserInfo) error {
 	return nil
 }
 
+func validateUserID(id int64) error {
+	if id <= 0 {
+		return ErrUserInvalidID
+	}
+
+	return nil
+}
+
 func validateUserFirstName(firstName string) error {
 	trimmed := strings.TrimSpace(firstName)
 	if trimmed == "" || firstName != trimmed {
-		return errs.ErrUserFirstNameInvalid
+		return ErrUserInvalidFirstName
 	}
 
 	if !botUserNamePattern.MatchString(firstName) {
-		return errs.ErrUserFirstNameInvalid
+		return ErrUserInvalidFirstName
 	}
 
 	return nil
@@ -221,11 +295,11 @@ func validateUserLastName(lastName *string) error {
 
 	trimmed := strings.TrimSpace(*lastName)
 	if trimmed == "" || *lastName != trimmed {
-		return errs.ErrUserLastNameInvalid
+		return ErrUserInvalidLastName
 	}
 
 	if !botUserNamePattern.MatchString(*lastName) {
-		return errs.ErrUserLastNameInvalid
+		return ErrUserInvalidLastName
 	}
 
 	return nil
@@ -238,11 +312,11 @@ func validateUserUsername(username *string) error {
 
 	trimmed := strings.TrimSpace(*username)
 	if trimmed == "" || *username != trimmed {
-		return errs.ErrUserUsernameInvalid
+		return ErrUserInvalidUsername
 	}
 
 	if !botUserUsernamePattern.MatchString(*username) {
-		return errs.ErrUserUsernameInvalid
+		return ErrUserInvalidUsername
 	}
 
 	return nil
@@ -255,29 +329,24 @@ func validateUserPhotoURL(photoURL *string) error {
 
 	trimmed := strings.TrimSpace(*photoURL)
 	if trimmed == "" || *photoURL != trimmed {
-		return errs.ErrUserPhotoURLInvalid
+		return ErrUserInvalidPhotoURL
 	}
 
 	parsedURL, err := url.ParseRequestURI(*photoURL)
 	if err != nil {
-		return errs.ErrUserPhotoURLInvalid
+		return ErrUserInvalidPhotoURL
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return errs.ErrUserPhotoURLInvalid
+		return ErrUserInvalidPhotoURL
 	}
 
 	return nil
 }
 
-func validateLoginMetadata(loginIP string, userAgent, language *string) error {
-	trimmedIP := strings.TrimSpace(loginIP)
-	if trimmedIP == "" || loginIP != trimmedIP {
-		return errs.ErrBotUserLoginIPInvalid
-	}
-
-	if _, err := netip.ParseAddr(loginIP); err != nil {
-		return errs.ErrBotUserLoginIPInvalid
+func validateBotUserLoginMetadata(loginIP string, userAgent, language *string) error {
+	if err := validateBotUserIP(loginIP); err != nil {
+		return err
 	}
 
 	if err := validateBotUserUserAgent(userAgent); err != nil {
@@ -291,6 +360,19 @@ func validateLoginMetadata(loginIP string, userAgent, language *string) error {
 	return nil
 }
 
+func validateBotUserIP(loginIP string) error {
+	trimmed := strings.TrimSpace(loginIP)
+	if trimmed == "" || loginIP != trimmed {
+		return ErrBotUserInvalidIP
+	}
+
+	if _, err := netip.ParseAddr(loginIP); err != nil {
+		return ErrBotUserInvalidIP
+	}
+
+	return nil
+}
+
 func validateBotUserUserAgent(userAgent *string) error {
 	if userAgent == nil {
 		return nil
@@ -298,11 +380,11 @@ func validateBotUserUserAgent(userAgent *string) error {
 
 	trimmed := strings.TrimSpace(*userAgent)
 	if trimmed == "" || *userAgent != trimmed {
-		return errs.ErrBotUserUserAgentInvalid
+		return ErrBotUserInvalidUserAgent
 	}
 
 	if len(*userAgent) > 2048 {
-		return errs.ErrBotUserUserAgentInvalid
+		return ErrBotUserInvalidUserAgent
 	}
 
 	return nil
@@ -315,11 +397,27 @@ func validateBotUserLanguage(language *string) error {
 
 	trimmed := strings.TrimSpace(*language)
 	if trimmed == "" || *language != trimmed {
-		return errs.ErrBotUserLanguageInvalid
+		return ErrBotUserInvalidLanguage
 	}
 
 	if !bcp47Pattern.MatchString(*language) {
-		return errs.ErrBotUserLanguageInvalid
+		return ErrBotUserInvalidLanguage
+	}
+
+	return nil
+}
+
+func validateBotUserUpdatedAt(updatedAt *time.Time, createdAt time.Time) error {
+	if updatedAt == nil {
+		return nil
+	}
+
+	if updatedAt.IsZero() {
+		return ErrBotUserInvalidUpdatedAt
+	}
+
+	if updatedAt.Before(createdAt) {
+		return ErrBotUserUpdatedBeforeCreate
 	}
 
 	return nil
