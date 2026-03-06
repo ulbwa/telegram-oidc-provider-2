@@ -1,13 +1,26 @@
 package model
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	errs "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
+)
+
+var (
+	ErrBotInvalidData          = errors.New("bot data is invalid")
+	ErrBotInvalidID            = fmt.Errorf("%w: ID is invalid", ErrBotInvalidData)
+	ErrBotInvalidName          = fmt.Errorf("%w: name is invalid", ErrBotInvalidData)
+	ErrBotInvalidUsername      = fmt.Errorf("%w: username is invalid", ErrBotInvalidData)
+	ErrBotInvalidToken         = fmt.Errorf("%w: token is invalid", ErrBotInvalidData)
+	ErrBotInvalidOAuthClientID = fmt.Errorf("%w: OAuth client ID is invalid", ErrBotInvalidData)
+	ErrBotInvalidCreatedAt     = fmt.Errorf("%w: created at is invalid", ErrBotInvalidData)
+	ErrBotInvalidUpdatedAt     = fmt.Errorf("%w: updated at is invalid", ErrBotInvalidData)
+	ErrBotUpdatedBeforeCreate  = fmt.Errorf("%w: updated at cannot be before created at", ErrBotInvalidUpdatedAt)
 )
 
 var (
@@ -54,18 +67,13 @@ func NewBot(id int64, name, username, token string) (*Bot, error) {
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-	if now.IsZero() {
-		return nil, errs.ErrBotCreatedAtInvalid
-	}
-
 	return &Bot{
 		ID:            id,
 		Name:          name,
 		Username:      username,
 		Token:         token,
 		OAuthClientID: nil,
-		CreatedAt:     now,
+		CreatedAt:     time.Now().UTC(),
 		UpdatedAt:     nil,
 	}, nil
 }
@@ -101,7 +109,7 @@ func RestoreBot(
 	}
 
 	if createdAt.IsZero() {
-		return nil, errs.ErrBotCreatedAtInvalid
+		return nil, ErrBotInvalidCreatedAt
 	}
 
 	if err := validateUpdatedAt(updatedAt, createdAt); err != nil {
@@ -292,7 +300,7 @@ func (b *Bot) UpdateProfile(name, username string) error {
 func (b *Bot) touch() error {
 	now := time.Now().UTC()
 	if now.Before(b.CreatedAt) {
-		return errs.ErrBotUpdatedBeforeCreate
+		return ErrBotUpdatedBeforeCreate
 	}
 
 	b.UpdatedAt = &now
@@ -302,7 +310,7 @@ func (b *Bot) touch() error {
 
 func validateBotID(id int64) error {
 	if id <= 0 {
-		return errs.ErrBotInvalidID
+		return ErrBotInvalidID
 	}
 
 	return nil
@@ -311,11 +319,11 @@ func validateBotID(id int64) error {
 func validateBotName(name string) error {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" || name != trimmed {
-		return errs.ErrBotNameInvalid
+		return ErrBotInvalidName
 	}
 
 	if !botNamePattern.MatchString(name) {
-		return errs.ErrBotNameInvalid
+		return ErrBotInvalidName
 	}
 
 	return nil
@@ -324,11 +332,11 @@ func validateBotName(name string) error {
 func validateBotUsername(username string) error {
 	trimmed := strings.TrimSpace(username)
 	if trimmed == "" || username != trimmed {
-		return errs.ErrBotUsernameInvalid
+		return ErrBotInvalidUsername
 	}
 
 	if !botUsernamePattern.MatchString(username) {
-		return errs.ErrBotUsernameInvalid
+		return ErrBotInvalidUsername
 	}
 
 	return nil
@@ -337,7 +345,7 @@ func validateBotUsername(username string) error {
 func validateBotToken(token string) error {
 	trimmed := strings.TrimSpace(token)
 	if trimmed == "" || token != trimmed {
-		return errs.ErrBotTokenInvalid
+		return ErrBotInvalidToken
 	}
 
 	return nil
@@ -350,7 +358,7 @@ func validateOAuthClientID(clientID *string) error {
 
 	trimmed := strings.TrimSpace(*clientID)
 	if trimmed == "" || *clientID != trimmed {
-		return errs.ErrBotOAuthClientIDInvalid
+		return ErrBotInvalidOAuthClientID
 	}
 
 	return nil
@@ -362,11 +370,11 @@ func validateUpdatedAt(updatedAt *time.Time, createdAt time.Time) error {
 	}
 
 	if updatedAt.IsZero() {
-		return errs.ErrBotUpdatedAtInvalid
+		return ErrBotInvalidUpdatedAt
 	}
 
 	if updatedAt.Before(createdAt) {
-		return errs.ErrBotUpdatedBeforeCreate
+		return ErrBotUpdatedBeforeCreate
 	}
 
 	return nil
