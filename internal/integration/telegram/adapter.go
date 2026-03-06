@@ -16,9 +16,11 @@ type goTgBotClientAdapter struct {
 	botClient gotgbot.BotClient
 }
 
+var ErrTelegramBotClientNil = errors.New("telegram bot client is nil")
+
 func NewGoTgBotClientAdapter(botClient gotgbot.BotClient) (servicebot.TelegramProvider, error) {
 	if botClient == nil {
-		return nil, errors.New("telegram bot client is nil")
+		return nil, ErrTelegramBotClientNil
 	}
 
 	return &goTgBotClientAdapter{botClient: botClient}, nil

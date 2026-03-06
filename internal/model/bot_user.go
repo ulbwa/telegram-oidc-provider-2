@@ -202,12 +202,9 @@ func validateUserInfo(info UserInfo) error {
 }
 
 func validateUserFirstName(firstName string) error {
-	if strings.TrimSpace(firstName) == "" {
-		return errs.ErrUserFirstNameRequired
-	}
-
-	if firstName != strings.TrimSpace(firstName) {
-		return errs.ErrUserFirstNameHasOuterSpaces
+	trimmed := strings.TrimSpace(firstName)
+	if trimmed == "" || firstName != trimmed {
+		return errs.ErrUserFirstNameInvalid
 	}
 
 	if !botUserNamePattern.MatchString(firstName) {
@@ -222,8 +219,9 @@ func validateUserLastName(lastName *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*lastName) == "" || *lastName != strings.TrimSpace(*lastName) {
-		return errs.ErrUserLastNameHasOuterSpaces
+	trimmed := strings.TrimSpace(*lastName)
+	if trimmed == "" || *lastName != trimmed {
+		return errs.ErrUserLastNameInvalid
 	}
 
 	if !botUserNamePattern.MatchString(*lastName) {
@@ -238,8 +236,9 @@ func validateUserUsername(username *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*username) == "" || *username != strings.TrimSpace(*username) {
-		return errs.ErrUserUsernameHasOuterSpaces
+	trimmed := strings.TrimSpace(*username)
+	if trimmed == "" || *username != trimmed {
+		return errs.ErrUserUsernameInvalid
 	}
 
 	if !botUserUsernamePattern.MatchString(*username) {
@@ -254,7 +253,8 @@ func validateUserPhotoURL(photoURL *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*photoURL) == "" || *photoURL != strings.TrimSpace(*photoURL) {
+	trimmed := strings.TrimSpace(*photoURL)
+	if trimmed == "" || *photoURL != trimmed {
 		return errs.ErrUserPhotoURLInvalid
 	}
 
@@ -271,11 +271,8 @@ func validateUserPhotoURL(photoURL *string) error {
 }
 
 func validateLoginMetadata(loginIP string, userAgent, language *string) error {
-	if strings.TrimSpace(loginIP) == "" {
-		return errs.ErrBotUserLoginIPRequired
-	}
-
-	if loginIP != strings.TrimSpace(loginIP) {
+	trimmedIP := strings.TrimSpace(loginIP)
+	if trimmedIP == "" || loginIP != trimmedIP {
 		return errs.ErrBotUserLoginIPInvalid
 	}
 
@@ -299,12 +296,9 @@ func validateBotUserUserAgent(userAgent *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*userAgent) == "" {
+	trimmed := strings.TrimSpace(*userAgent)
+	if trimmed == "" || *userAgent != trimmed {
 		return errs.ErrBotUserUserAgentInvalid
-	}
-
-	if *userAgent != strings.TrimSpace(*userAgent) {
-		return errs.ErrBotUserUserAgentHasOuterSpaces
 	}
 
 	if len(*userAgent) > 2048 {
@@ -319,12 +313,9 @@ func validateBotUserLanguage(language *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*language) == "" {
+	trimmed := strings.TrimSpace(*language)
+	if trimmed == "" || *language != trimmed {
 		return errs.ErrBotUserLanguageInvalid
-	}
-
-	if *language != strings.TrimSpace(*language) {
-		return errs.ErrBotUserLanguageHasOuterSpaces
 	}
 
 	if !bcp47Pattern.MatchString(*language) {

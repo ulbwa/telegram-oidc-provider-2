@@ -115,7 +115,7 @@ func RestoreBot(
 		Token:         token,
 		OAuthClientID: utils.PtrClone(oauthClientID),
 		CreatedAt:     createdAt,
-		UpdatedAt:     updatedAt,
+		UpdatedAt:     utils.PtrClone(updatedAt),
 	}, nil
 }
 
@@ -309,12 +309,9 @@ func validateBotID(id int64) error {
 }
 
 func validateBotName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return errs.ErrBotNameRequired
-	}
-
-	if name != strings.TrimSpace(name) {
-		return errs.ErrBotNameHasOuterSpaces
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" || name != trimmed {
+		return errs.ErrBotNameInvalid
 	}
 
 	if !botNamePattern.MatchString(name) {
@@ -325,12 +322,9 @@ func validateBotName(name string) error {
 }
 
 func validateBotUsername(username string) error {
-	if strings.TrimSpace(username) == "" {
-		return errs.ErrBotUsernameRequired
-	}
-
-	if username != strings.TrimSpace(username) {
-		return errs.ErrBotUsernameOuterSpaces
+	trimmed := strings.TrimSpace(username)
+	if trimmed == "" || username != trimmed {
+		return errs.ErrBotUsernameInvalid
 	}
 
 	if !botUsernamePattern.MatchString(username) {
@@ -341,12 +335,9 @@ func validateBotUsername(username string) error {
 }
 
 func validateBotToken(token string) error {
-	if strings.TrimSpace(token) == "" {
-		return errs.ErrBotTokenRequired
-	}
-
-	if token != strings.TrimSpace(token) {
-		return errs.ErrBotTokenOuterSpaces
+	trimmed := strings.TrimSpace(token)
+	if trimmed == "" || token != trimmed {
+		return errs.ErrBotTokenInvalid
 	}
 
 	return nil
@@ -357,12 +348,9 @@ func validateOAuthClientID(clientID *string) error {
 		return nil
 	}
 
-	if strings.TrimSpace(*clientID) == "" {
+	trimmed := strings.TrimSpace(*clientID)
+	if trimmed == "" || *clientID != trimmed {
 		return errs.ErrBotOAuthClientIDInvalid
-	}
-
-	if *clientID != strings.TrimSpace(*clientID) {
-		return errs.ErrBotOAuthClientIDOuterSpaces
 	}
 
 	return nil

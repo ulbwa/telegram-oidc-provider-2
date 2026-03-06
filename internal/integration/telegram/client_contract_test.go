@@ -1,14 +1,13 @@
 package telegram
 
 import (
+	"errors"
 	"testing"
 
 	gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 
 	servicebot "github.com/ulbwa/telegram-oidc-provider/internal/service/bot"
 )
-
-const errBotClientNilMessage = "telegram bot client is nil"
 
 func TestAdapterImplementsProvider(t *testing.T) {
 	t.Parallel()
@@ -24,8 +23,8 @@ func TestNewGoTgBotClientAdapterNilClient(t *testing.T) {
 		t.Fatalf("expected non-nil error")
 	}
 
-	if err.Error() != errBotClientNilMessage {
-		t.Fatalf("expected error %q, got %q", errBotClientNilMessage, err.Error())
+	if !errors.Is(err, ErrTelegramBotClientNil) {
+		t.Fatalf("expected errors.Is(err, ErrTelegramBotClientNil) to be true, got %v", err)
 	}
 
 	if adapter != nil {

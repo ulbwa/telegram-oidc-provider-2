@@ -11,6 +11,7 @@ var (
 	ErrBotUsernameInvalid          = errors.New("bot username is invalid")
 	ErrBotUsernameOuterSpaces      = errors.New("bot username cannot contain leading or trailing spaces")
 	ErrBotTokenRequired            = errors.New("bot token is required")
+	ErrBotTokenInvalid             = errors.New("bot token is invalid")
 	ErrBotTokenOuterSpaces         = errors.New("bot token cannot contain leading or trailing spaces")
 	ErrBotOAuthClientIDInvalid     = errors.New("bot oauth client id is invalid")
 	ErrBotOAuthClientIDOuterSpaces = errors.New("bot oauth client id cannot contain leading or trailing spaces")

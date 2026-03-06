@@ -71,7 +71,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "   ",
 			username: "oidc_login_bot",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotNameRequired,
+			expected: apperrors.ErrBotNameInvalid,
 		},
 		{
 			name:     "name with trailing space",
@@ -79,7 +79,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot ",
 			username: "oidc_login_bot",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotNameHasOuterSpaces,
+			expected: apperrors.ErrBotNameInvalid,
 		},
 		{
 			name:     "invalid username format",
@@ -111,7 +111,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameRequired,
+			expected: apperrors.ErrBotUsernameInvalid,
 		},
 		{
 			name:     "username with trailing space",
@@ -119,7 +119,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot ",
 			token:    "123:ABC",
-			expected: apperrors.ErrBotUsernameOuterSpaces,
+			expected: apperrors.ErrBotUsernameInvalid,
 		},
 		{
 			name:     "empty token",
@@ -127,7 +127,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot",
 			token:    "",
-			expected: apperrors.ErrBotTokenRequired,
+			expected: apperrors.ErrBotTokenInvalid,
 		},
 		{
 			name:     "token with trailing space",
@@ -135,7 +135,7 @@ func TestNewBotValidation(t *testing.T) {
 			botName:  "OIDC Bot",
 			username: "oidc_login_bot",
 			token:    "123:ABC ",
-			expected: apperrors.ErrBotTokenOuterSpaces,
+			expected: apperrors.ErrBotTokenInvalid,
 		},
 	}
 
@@ -348,6 +348,33 @@ func TestRestoreBotUpdatedAtBeforeCreatedAt(t *testing.T) {
 	}
 }
 
+func TestRestoreBotClonesUpdatedAtPointer(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Now().UTC().Add(-time.Minute)
+	originalUpdatedAt := createdAt.Add(10 * time.Second)
+
+	bot, err := model.RestoreBot(1, "OIDC Bot", "oidc_login_bot", "123:ABC", nil, createdAt, &originalUpdatedAt)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if bot.UpdatedAt == nil {
+		t.Fatalf("expected non-nil updatedAt")
+	}
+
+	if !bot.UpdatedAt.Equal(originalUpdatedAt) {
+		t.Fatalf("expected updatedAt %v, got %v", originalUpdatedAt, *bot.UpdatedAt)
+	}
+
+	mutated := originalUpdatedAt.Add(2 * time.Minute)
+	originalUpdatedAt = mutated
+
+	if bot.UpdatedAt.Equal(originalUpdatedAt) {
+		t.Fatalf("expected bot updatedAt to be isolated from external pointer mutation")
+	}
+}
+
 func TestBotSetUsernameEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -357,8 +384,8 @@ func TestBotSetUsernameEmpty(t *testing.T) {
 	}
 
 	err = bot.SetUsername("")
-	if !errors.Is(err, apperrors.ErrBotUsernameRequired) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUsernameRequired, err)
+	if !errors.Is(err, apperrors.ErrBotUsernameInvalid) {
+		t.Fatalf("expected error %v, got %v", apperrors.ErrBotUsernameInvalid, err)
 	}
 }
 
@@ -414,8 +441,8 @@ func TestBotBindOAuthClientValidation(t *testing.T) {
 	}
 
 	err = bot.BindOAuthClient(" hydra-client ")
-	if !errors.Is(err, apperrors.ErrBotOAuthClientIDOuterSpaces) {
-		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDOuterSpaces, err)
+	if !errors.Is(err, apperrors.ErrBotOAuthClientIDInvalid) {
+		t.Fatalf("expected error %v, got %v", apperrors.ErrBotOAuthClientIDInvalid, err)
 	}
 }
 
