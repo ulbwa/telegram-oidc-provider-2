@@ -311,7 +311,7 @@ func validateUsername(username *string) error {
 	}
 
 	if strings.TrimSpace(*username) == "" {
-		return errs.ErrBotUsernameInvalid
+		return errs.ErrBotUsernameRequired
 	}
 
 	if *username != strings.TrimSpace(*username) {
