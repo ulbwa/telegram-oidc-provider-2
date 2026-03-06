@@ -10,5 +10,5 @@ var (
 	ErrUserLastNameHasOuterSpaces  = errors.New("user last name cannot contain leading or trailing spaces")
 	ErrUserUsernameInvalid         = errors.New("user username is invalid")
 	ErrUserUsernameHasOuterSpaces  = errors.New("user username cannot contain leading or trailing spaces")
-	ErrUserPhotoURLInvalid         = errors.New("user photo url is invalid")
+	ErrUserPhotoURLInvalid         = errors.New("user photo URL is invalid")
 )
