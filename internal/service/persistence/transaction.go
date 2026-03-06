@@ -7,9 +7,7 @@ import (
 	"time"
 )
 
-var (
-	ErrTransactionAlreadyExists = errors.New("transaction already exists and cannot be created again")
-)
+var ErrTransactionAlreadyExists = errors.New("transaction already exists and cannot be created again")
 
 type TransactionFactory interface {
 	Begin(ctx context.Context) (context.Context, Transaction, error)
