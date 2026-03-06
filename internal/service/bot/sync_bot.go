@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/rs/zerolog"
+
 	"github.com/ulbwa/telegram-oidc-provider/internal/model"
 	"github.com/ulbwa/telegram-oidc-provider/internal/service/persistence"
 	"github.com/ulbwa/telegram-oidc-provider/internal/service/telegram"
@@ -27,7 +29,7 @@ func (s *service) updateFromTelegram(bot *model.Bot, profile *telegram.Bot, toke
 	return nil
 }
 
-func (s *service) SyncByToken(ctx context.Context, token string) (*model.Bot, error) {
+func (s *service) SyncByToken(ctx context.Context, token string) (bot *model.Bot, err error) {
 	profile, err := s.tgProvider.FetchBot(ctx, token)
 	if err != nil {
 		return nil, err
@@ -37,9 +39,12 @@ func (s *service) SyncByToken(ctx context.Context, token string) (*model.Bot, er
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Close()
+	defer func() {
+		if closeErr := tx.Close(); closeErr != nil {
+			zerolog.Ctx(ctx).Error().Err(closeErr).Msg("failed to close transaction in SyncByToken")
+		}
+	}()
 
-	var bot *model.Bot
 	err = persistence.WithinTransaction(ctx, tx, func() error {
 		bot, err = s.repository.GetByID(ctx, profile.ID)
 		if err != nil {

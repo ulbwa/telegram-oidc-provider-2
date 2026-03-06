@@ -6,13 +6,13 @@ import (
 
 	gotgbot "github.com/PaulSonOfLars/gotgbot/v2"
 
-	servicebot "github.com/ulbwa/telegram-oidc-provider/internal/service/bot"
+	telegram "github.com/ulbwa/telegram-oidc-provider/internal/service/telegram"
 )
 
 func TestAdapterImplementsProvider(t *testing.T) {
 	t.Parallel()
 
-	var _ servicebot.TelegramProvider = (*goTgBotClientAdapter)(nil)
+	var _ telegram.Provider = (*goTgBotClientAdapter)(nil)
 }
 
 func TestNewGoTgBotClientAdapterNilClient(t *testing.T) {

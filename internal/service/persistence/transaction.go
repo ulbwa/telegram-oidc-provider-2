@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 var ErrTransactionAlreadyExists = errors.New("transaction already exists and cannot be created again")
@@ -28,10 +30,14 @@ type Transaction interface {
 	RollbackSavepoint(ctx context.Context, name string) error
 }
 
-func WithinTransaction(ctx context.Context, tx Transaction, fn func() error) error {
-	defer tx.Close()
+func WithinTransaction(ctx context.Context, tx Transaction, fn func() error) (err error) {
+	defer func() {
+		if closeErr := tx.Close(); closeErr != nil {
+			zerolog.Ctx(ctx).Error().Err(closeErr).Msg("failed to close transaction")
+		}
+	}()
 
-	if err := fn(); err != nil {
+	if err = fn(); err != nil {
 		rollbackCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 

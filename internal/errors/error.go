@@ -2,14 +2,14 @@ package errors
 
 import "errors"
 
-// Details is a typed error wrapper with compile-time safe metadata.
+// DetailedError is a typed error wrapper with compile-time safe metadata.
 // T may be any struct, including nested structures.
-type Details[T any] struct {
+type DetailedError[T any] struct {
 	Meta  T
 	Cause error
 }
 
-func (d *Details[T]) Error() string {
+func (d *DetailedError[T]) Error() string {
 	if d == nil || d.Cause == nil {
 		return "<nil>"
 	}
@@ -17,7 +17,7 @@ func (d *Details[T]) Error() string {
 	return d.Cause.Error()
 }
 
-func (d *Details[T]) Unwrap() error {
+func (d *DetailedError[T]) Unwrap() error {
 	if d == nil {
 		return nil
 	}
@@ -26,7 +26,7 @@ func (d *Details[T]) Unwrap() error {
 }
 
 // WithMeta replaces metadata in-place and returns the same pointer for chaining.
-func (d *Details[T]) WithMeta(meta T) *Details[T] {
+func (d *DetailedError[T]) WithMeta(meta T) *DetailedError[T] {
 	if d == nil {
 		return nil
 	}
@@ -37,7 +37,7 @@ func (d *Details[T]) WithMeta(meta T) *Details[T] {
 }
 
 // EditMeta mutates metadata in-place via typed callback without any type assertions.
-func (d *Details[T]) EditMeta(edit func(meta *T)) *Details[T] {
+func (d *DetailedError[T]) EditMeta(edit func(meta *T)) *DetailedError[T] {
 	if d == nil || edit == nil {
 		return d
 	}
@@ -48,26 +48,26 @@ func (d *Details[T]) EditMeta(edit func(meta *T)) *Details[T] {
 }
 
 // Wrap attaches typed metadata to err and preserves errors.Is/errors.As via Unwrap.
-func Wrap[T any](err error, meta T) *Details[T] {
+func Wrap[T any](err error, meta T) *DetailedError[T] {
 	if err == nil {
 		return nil
 	}
 
-	return &Details[T]{Meta: meta, Cause: err}
+	return &DetailedError[T]{Meta: meta, Cause: err}
 }
 
 // WrapZero wraps err using zero-value metadata of T.
-func WrapZero[T any](err error) *Details[T] {
+func WrapZero[T any](err error) *DetailedError[T] {
 	if err == nil {
 		return nil
 	}
 
 	var zero T
-	return &Details[T]{Meta: zero, Cause: err}
+	return &DetailedError[T]{Meta: zero, Cause: err}
 }
 
 func Meta[T any](err error) (*T, bool) {
-	var details *Details[T]
+	var details *DetailedError[T]
 	if !errors.As(err, &details) || details == nil {
 		return nil, false
 	}
