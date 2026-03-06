@@ -1,4 +1,4 @@
-module github.com/ulbwa/go-backend-template
+module github.com/ulbwa/telegram-oidc-provider
 
 go 1.26.0
 
@@ -12,6 +12,7 @@ tool (
 )
 
 require (
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.34
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/do/v2 v2.0.0

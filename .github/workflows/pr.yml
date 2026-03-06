@@ -23,6 +23,8 @@ jobs:
 
       - name: Setup Task
         uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run lint
         run: task lint
@@ -42,6 +44,8 @@ jobs:
 
       - name: Setup Task
         uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests
         run: task test
@@ -61,6 +65,8 @@ jobs:
 
       - name: Setup Task
         uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
         run: |
@@ -87,6 +93,8 @@ jobs:
 
       - name: Setup Task
         uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run security scan (govulncheck)
         run: task vuln

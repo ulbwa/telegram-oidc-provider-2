@@ -8,8 +8,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/samber/do/v2"
 
-	"github.com/ulbwa/go-backend-template/internal/config"
-	"github.com/ulbwa/go-backend-template/internal/di"
+	"github.com/ulbwa/telegram-oidc-provider/internal/config"
+	"github.com/ulbwa/telegram-oidc-provider/internal/di"
 )
 
 func loadConfig(path string) *config.Config {
