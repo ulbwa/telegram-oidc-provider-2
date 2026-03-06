@@ -27,11 +27,11 @@ type UserInfo struct {
 }
 
 func NewUserInfo(firstName string, lastName, username, photoURL *string, isPremium *bool) (UserInfo, error) {
-	if err := validateFirstName(firstName); err != nil {
+	if err := validateUserFirstName(firstName); err != nil {
 		return UserInfo{}, err
 	}
 
-	if err := validateLastName(lastName); err != nil {
+	if err := validateUserLastName(lastName); err != nil {
 		return UserInfo{}, err
 	}
 
@@ -39,7 +39,7 @@ func NewUserInfo(firstName string, lastName, username, photoURL *string, isPremi
 		return UserInfo{}, err
 	}
 
-	if err := validatePhotoURL(photoURL); err != nil {
+	if err := validateUserPhotoURL(photoURL); err != nil {
 		return UserInfo{}, err
 	}
 
@@ -182,11 +182,11 @@ func validateBotUserIDs(botID, userID int64) error {
 }
 
 func validateUserInfo(info UserInfo) error {
-	if err := validateFirstName(info.FirstName); err != nil {
+	if err := validateUserFirstName(info.FirstName); err != nil {
 		return err
 	}
 
-	if err := validateLastName(info.LastName); err != nil {
+	if err := validateUserLastName(info.LastName); err != nil {
 		return err
 	}
 
@@ -194,40 +194,40 @@ func validateUserInfo(info UserInfo) error {
 		return err
 	}
 
-	if err := validatePhotoURL(info.PhotoURL); err != nil {
+	if err := validateUserPhotoURL(info.PhotoURL); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func validateFirstName(firstName string) error {
+func validateUserFirstName(firstName string) error {
 	if strings.TrimSpace(firstName) == "" {
-		return errs.ErrBotUserFirstNameRequired
+		return errs.ErrUserFirstNameRequired
 	}
 
 	if firstName != strings.TrimSpace(firstName) {
-		return errs.ErrBotUserFirstNameHasOuterSpaces
+		return errs.ErrUserFirstNameHasOuterSpaces
 	}
 
 	if !botUserNamePattern.MatchString(firstName) {
-		return errs.ErrBotUserFirstNameInvalid
+		return errs.ErrUserFirstNameInvalid
 	}
 
 	return nil
 }
 
-func validateLastName(lastName *string) error {
+func validateUserLastName(lastName *string) error {
 	if lastName == nil {
 		return nil
 	}
 
 	if strings.TrimSpace(*lastName) == "" || *lastName != strings.TrimSpace(*lastName) {
-		return errs.ErrBotUserLastNameHasOuterSpaces
+		return errs.ErrUserLastNameHasOuterSpaces
 	}
 
 	if !botUserNamePattern.MatchString(*lastName) {
-		return errs.ErrBotUserLastNameInvalid
+		return errs.ErrUserLastNameInvalid
 	}
 
 	return nil
@@ -239,32 +239,32 @@ func validateUserUsername(username *string) error {
 	}
 
 	if strings.TrimSpace(*username) == "" || *username != strings.TrimSpace(*username) {
-		return errs.ErrBotUserUsernameHasOuterSpaces
+		return errs.ErrUserUsernameHasOuterSpaces
 	}
 
 	if !botUserUsernamePattern.MatchString(*username) {
-		return errs.ErrBotUserUsernameInvalid
+		return errs.ErrUserUsernameInvalid
 	}
 
 	return nil
 }
 
-func validatePhotoURL(photoURL *string) error {
+func validateUserPhotoURL(photoURL *string) error {
 	if photoURL == nil {
 		return nil
 	}
 
 	if strings.TrimSpace(*photoURL) == "" || *photoURL != strings.TrimSpace(*photoURL) {
-		return errs.ErrBotUserPhotoURLInvalid
+		return errs.ErrUserPhotoURLInvalid
 	}
 
 	parsedURL, err := url.ParseRequestURI(*photoURL)
 	if err != nil {
-		return errs.ErrBotUserPhotoURLInvalid
+		return errs.ErrUserPhotoURLInvalid
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return errs.ErrBotUserPhotoURLInvalid
+		return errs.ErrUserPhotoURLInvalid
 	}
 
 	return nil
@@ -283,18 +283,18 @@ func validateLoginMetadata(loginIP string, userAgent, language *string) error {
 		return errs.ErrBotUserLoginIPInvalid
 	}
 
-	if err := validateUserAgent(userAgent); err != nil {
+	if err := validateBotUserUserAgent(userAgent); err != nil {
 		return err
 	}
 
-	if err := validateLanguage(language); err != nil {
+	if err := validateBotUserLanguage(language); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func validateUserAgent(userAgent *string) error {
+func validateBotUserUserAgent(userAgent *string) error {
 	if userAgent == nil {
 		return nil
 	}
@@ -314,7 +314,7 @@ func validateUserAgent(userAgent *string) error {
 	return nil
 }
 
-func validateLanguage(language *string) error {
+func validateBotUserLanguage(language *string) error {
 	if language == nil {
 		return nil
 	}

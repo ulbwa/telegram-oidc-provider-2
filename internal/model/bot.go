@@ -38,19 +38,19 @@ type Bot struct {
 // NewBot creates a new Bot with immutable creation time.
 // UpdatedAt is nil until first business update.
 func NewBot(id int64, name string, username string, token string) (*Bot, error) {
-	if err := validateID(id); err != nil {
+	if err := validateBotID(id); err != nil {
 		return nil, err
 	}
 
-	if err := validateName(name); err != nil {
+	if err := validateBotName(name); err != nil {
 		return nil, err
 	}
 
-	if err := validateUsername(username); err != nil {
+	if err := validateBotUsername(username); err != nil {
 		return nil, err
 	}
 
-	if err := validateToken(token); err != nil {
+	if err := validateBotToken(token); err != nil {
 		return nil, err
 	}
 
@@ -80,19 +80,19 @@ func RestoreBot(
 	createdAt time.Time,
 	updatedAt *time.Time,
 ) (*Bot, error) {
-	if err := validateID(id); err != nil {
+	if err := validateBotID(id); err != nil {
 		return nil, err
 	}
 
-	if err := validateName(name); err != nil {
+	if err := validateBotName(name); err != nil {
 		return nil, err
 	}
 
-	if err := validateUsername(username); err != nil {
+	if err := validateBotUsername(username); err != nil {
 		return nil, err
 	}
 
-	if err := validateToken(token); err != nil {
+	if err := validateBotToken(token); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +125,7 @@ func (b *Bot) SetName(name string) error {
 		return nil
 	}
 
-	if err := validateName(name); err != nil {
+	if err := validateBotName(name); err != nil {
 		return err
 	}
 
@@ -144,7 +144,7 @@ func (b *Bot) SetUsername(username string) error {
 		return nil
 	}
 
-	if err := validateUsername(username); err != nil {
+	if err := validateBotUsername(username); err != nil {
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (b *Bot) SetToken(token string) error {
 		return nil
 	}
 
-	if err := validateToken(token); err != nil {
+	if err := validateBotToken(token); err != nil {
 		return err
 	}
 
@@ -268,13 +268,13 @@ func (b *Bot) UpdateProfile(name string, username string) error {
 	}
 
 	if b.Name != name {
-		if err := validateName(name); err != nil {
+		if err := validateBotName(name); err != nil {
 			return err
 		}
 	}
 
 	if b.Username != username {
-		if err := validateUsername(username); err != nil {
+		if err := validateBotUsername(username); err != nil {
 			return err
 		}
 	}
@@ -300,7 +300,7 @@ func (b *Bot) touch() error {
 	return nil
 }
 
-func validateID(id int64) error {
+func validateBotID(id int64) error {
 	if id <= 0 {
 		return errs.ErrBotInvalidID
 	}
@@ -308,7 +308,7 @@ func validateID(id int64) error {
 	return nil
 }
 
-func validateName(name string) error {
+func validateBotName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errs.ErrBotNameRequired
 	}
@@ -324,7 +324,7 @@ func validateName(name string) error {
 	return nil
 }
 
-func validateUsername(username string) error {
+func validateBotUsername(username string) error {
 	if strings.TrimSpace(username) == "" {
 		return errs.ErrBotUsernameRequired
 	}
@@ -340,7 +340,7 @@ func validateUsername(username string) error {
 	return nil
 }
 
-func validateToken(token string) error {
+func validateBotToken(token string) error {
 	if strings.TrimSpace(token) == "" {
 		return errs.ErrBotTokenRequired
 	}

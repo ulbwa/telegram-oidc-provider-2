@@ -47,25 +47,25 @@ func TestNewUserInfoValidation(t *testing.T) {
 		{
 			name:      "empty first name",
 			firstName: "",
-			expected:  errs.ErrBotUserFirstNameRequired,
+			expected:  errs.ErrUserFirstNameRequired,
 		},
 		{
 			name:      "username invalid",
 			firstName: "Ivan",
 			username:  utils.Ptr("!bad"),
-			expected:  errs.ErrBotUserUsernameInvalid,
+			expected:  errs.ErrUserUsernameInvalid,
 		},
 		{
 			name:      "photo url invalid",
 			firstName: "Ivan",
 			photoURL:  utils.Ptr("ftp://example.com/photo.jpg"),
-			expected:  errs.ErrBotUserPhotoURLInvalid,
+			expected:  errs.ErrUserPhotoURLInvalid,
 		},
 		{
 			name:      "last name has spaces",
 			firstName: "Ivan",
 			lastName:  utils.Ptr(" Petrov "),
-			expected:  errs.ErrBotUserLastNameHasOuterSpaces,
+			expected:  errs.ErrUserLastNameHasOuterSpaces,
 		},
 	}
 
