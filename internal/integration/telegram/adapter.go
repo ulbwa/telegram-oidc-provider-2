@@ -10,7 +10,6 @@ import (
 
 	errs "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	servicebot "github.com/ulbwa/telegram-oidc-provider/internal/service/bot"
-	"github.com/ulbwa/telegram-oidc-provider/pkg/utils"
 )
 
 type goTgBotClientAdapter struct {
@@ -27,6 +26,9 @@ func NewGoTgBotClientAdapter(botClient gotgbot.BotClient) (servicebot.TelegramPr
 
 func (a *goTgBotClientAdapter) FetchBotProfile(ctx context.Context, token string) (*servicebot.TelegramBotProfileDTO, error) {
 	if strings.TrimSpace(token) == "" {
+		return nil, errs.ErrTelegramBotTokenRequired
+	}
+	if strings.TrimSpace(token) != token {
 		return nil, errs.ErrTelegramBotTokenInvalid
 	}
 
@@ -45,15 +47,14 @@ func (a *goTgBotClientAdapter) FetchBotProfile(ctx context.Context, token string
 		return nil, errs.ErrTelegramAPIResponse
 	}
 
-	var username *string
-	if strings.TrimSpace(botUser.Username) != "" && botUser.Username != "<missing>" {
-		username = utils.Ptr(botUser.Username)
+	if strings.TrimSpace(botUser.Username) == "" {
+		return nil, errs.ErrTelegramBotUsernameRequired
 	}
 
 	return &servicebot.TelegramBotProfileDTO{
 		ID:       botUser.Id,
 		Name:     botUser.FirstName,
-		Username: username,
+		Username: botUser.Username,
 	}, nil
 }
 

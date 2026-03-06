@@ -28,7 +28,7 @@ const (
 type Bot struct {
 	ID            int64
 	Name          string
-	Username      *string
+	Username      string
 	Token         string
 	OAuthClientID *string
 	CreatedAt     time.Time
@@ -37,7 +37,7 @@ type Bot struct {
 
 // NewBot creates a new Bot with immutable creation time.
 // UpdatedAt is nil until first business update.
-func NewBot(id int64, name string, username *string, token string) (*Bot, error) {
+func NewBot(id int64, name string, username string, token string) (*Bot, error) {
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func NewBot(id int64, name string, username *string, token string) (*Bot, error)
 	return &Bot{
 		ID:            id,
 		Name:          name,
-		Username:      utils.PtrClone(username),
+		Username:      username,
 		Token:         token,
 		OAuthClientID: nil,
 		CreatedAt:     now,
@@ -74,7 +74,7 @@ func NewBot(id int64, name string, username *string, token string) (*Bot, error)
 func RestoreBot(
 	id int64,
 	name string,
-	username *string,
+	username string,
 	token string,
 	oauthClientID *string,
 	createdAt time.Time,
@@ -111,7 +111,7 @@ func RestoreBot(
 	return &Bot{
 		ID:            id,
 		Name:          name,
-		Username:      utils.PtrClone(username),
+		Username:      username,
 		Token:         token,
 		OAuthClientID: utils.PtrClone(oauthClientID),
 		CreatedAt:     createdAt,
@@ -138,9 +138,9 @@ func (b *Bot) SetName(name string) error {
 	return nil
 }
 
-// SetUsername sets Telegram username and validates format. Nil means no username.
-func (b *Bot) SetUsername(username *string) error {
-	if utils.PtrEqual(b.Username, username) {
+// SetUsername sets Telegram username and validates format.
+func (b *Bot) SetUsername(username string) error {
+	if b.Username == username {
 		return nil
 	}
 
@@ -148,7 +148,7 @@ func (b *Bot) SetUsername(username *string) error {
 		return err
 	}
 
-	b.Username = utils.PtrClone(username)
+	b.Username = username
 
 	if err := b.touch(); err != nil {
 		return err
@@ -262,8 +262,8 @@ func (b *Bot) LastModifiedAt() time.Time {
 }
 
 // UpdateProfile updates bot profile fields and update timestamp atomically.
-func (b *Bot) UpdateProfile(name string, username *string) error {
-	if b.Name == name && utils.PtrEqual(b.Username, username) {
+func (b *Bot) UpdateProfile(name string, username string) error {
+	if b.Name == name && b.Username == username {
 		return nil
 	}
 
@@ -273,14 +273,14 @@ func (b *Bot) UpdateProfile(name string, username *string) error {
 		}
 	}
 
-	if !utils.PtrEqual(b.Username, username) {
+	if b.Username != username {
 		if err := validateUsername(username); err != nil {
 			return err
 		}
 	}
 
 	b.Name = name
-	b.Username = utils.PtrClone(username)
+	b.Username = username
 
 	if err := b.touch(); err != nil {
 		return err
@@ -324,20 +324,16 @@ func validateName(name string) error {
 	return nil
 }
 
-func validateUsername(username *string) error {
-	if username == nil {
-		return nil
-	}
-
-	if strings.TrimSpace(*username) == "" {
+func validateUsername(username string) error {
+	if strings.TrimSpace(username) == "" {
 		return errs.ErrBotUsernameRequired
 	}
 
-	if *username != strings.TrimSpace(*username) {
+	if username != strings.TrimSpace(username) {
 		return errs.ErrBotUsernameOuterSpaces
 	}
 
-	if !botUsernamePattern.MatchString(*username) {
+	if !botUsernamePattern.MatchString(username) {
 		return errs.ErrBotUsernameInvalid
 	}
 
