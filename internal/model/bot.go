@@ -37,7 +37,7 @@ type Bot struct {
 
 // NewBot creates a new Bot with immutable creation time.
 // UpdatedAt is nil until first business update.
-func NewBot(id int64, name string, username string, token string) (*Bot, error) {
+func NewBot(id int64, name, username, token string) (*Bot, error) {
 	if err := validateBotID(id); err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func (b *Bot) LastModifiedAt() time.Time {
 }
 
 // UpdateProfile updates bot profile fields and update timestamp atomically.
-func (b *Bot) UpdateProfile(name string, username string) error {
+func (b *Bot) UpdateProfile(name, username string) error {
 	if b.Name == name && b.Username == username {
 		return nil
 	}
