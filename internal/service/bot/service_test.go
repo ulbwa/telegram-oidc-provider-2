@@ -5,15 +5,70 @@ import (
 	"errors"
 	"testing"
 
-	errdefs "github.com/ulbwa/telegram-oidc-provider/internal/errors"
 	"github.com/ulbwa/telegram-oidc-provider/internal/model"
+	"github.com/ulbwa/telegram-oidc-provider/internal/service/persistence"
+	"github.com/ulbwa/telegram-oidc-provider/internal/service/telegram"
 )
+
+type transactionMock struct {
+	commitErr   error
+	rollbackErr error
+	closeErr    error
+
+	commits   int
+	rollbacks int
+	closes    int
+}
+
+func (m *transactionMock) Savepoint(ctx context.Context, name string) error {
+	return nil
+}
+
+func (m *transactionMock) Commit(ctx context.Context) error {
+	m.commits++
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	return nil
+}
+
+func (m *transactionMock) Rollback(ctx context.Context) error {
+	m.rollbacks++
+	if m.rollbackErr != nil {
+		return m.rollbackErr
+	}
+	return nil
+}
+
+func (m *transactionMock) RollbackSavepoint(ctx context.Context, name string) error {
+	return nil
+}
+
+func (m *transactionMock) Close() error {
+	m.closes++
+	if m.closeErr != nil {
+		return m.closeErr
+	}
+	return nil
+}
 
 type repositoryMock struct {
 	storedBot *model.Bot
 	savedBot  *model.Bot
 	saveErr   error
 	getErr    error
+	beginErr  error
+	tx        *transactionMock
+}
+
+func (m *repositoryMock) Begin(ctx context.Context) (context.Context, persistence.Transaction, error) {
+	if m.beginErr != nil {
+		return nil, nil, m.beginErr
+	}
+	if m.tx == nil {
+		m.tx = &transactionMock{}
+	}
+	return ctx, m.tx, nil
 }
 
 func (m *repositoryMock) GetByID(ctx context.Context, id int64) (*model.Bot, error) {
@@ -21,12 +76,8 @@ func (m *repositoryMock) GetByID(ctx context.Context, id int64) (*model.Bot, err
 		return nil, m.getErr
 	}
 
-	if m.storedBot == nil {
-		return nil, errdefs.ErrNotFound
-	}
-
-	if m.storedBot.ID != id {
-		return nil, errdefs.ErrNotFound
+	if m.storedBot == nil || m.storedBot.ID != id {
+		return nil, persistence.ErrNotFound
 	}
 
 	return m.storedBot, nil
@@ -39,52 +90,61 @@ func (m *repositoryMock) Save(ctx context.Context, bot *model.Bot) error {
 	}
 
 	m.storedBot = bot
-
 	return nil
 }
 
-type telegramAdapterMock struct {
-	profile *TelegramBotProfileDTO
+type telegramProviderMock struct {
+	profile *telegram.Bot
 	err     error
 }
 
-type transactionManagerMock struct {
-	called bool
-	err    error
-}
-
-func (m *transactionManagerMock) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
-	m.called = true
-	if m.err != nil {
-		return m.err
-	}
-
-	return fn(ctx)
-}
-
-func (m *telegramAdapterMock) FetchBotProfile(ctx context.Context, token string) (*TelegramBotProfileDTO, error) {
+func (m *telegramProviderMock) FetchBot(ctx context.Context, token string) (*telegram.Bot, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
+	if m.profile == nil {
+		return nil, errors.New("profile is nil")
+	}
 
-	return &TelegramBotProfileDTO{
+	return &telegram.Bot{
 		ID:       m.profile.ID,
 		Name:     m.profile.Name,
 		Username: m.profile.Username,
 	}, nil
 }
 
+func TestNewServiceValidation(t *testing.T) {
+	t.Parallel()
+
+	provider := &telegramProviderMock{profile: &telegram.Bot{ID: 1, Name: "Bot", Username: "bot_name"}}
+	repo := &repositoryMock{}
+
+	_, err := NewService(nil, provider)
+	if !errors.Is(err, ErrRepositoryNil) {
+		t.Fatalf("expected error %v, got %v", ErrRepositoryNil, err)
+	}
+
+	_, err = NewService(repo, nil)
+	if !errors.Is(err, ErrTelegramProviderNil) {
+		t.Fatalf("expected error %v, got %v", ErrTelegramProviderNil, err)
+	}
+}
+
 func TestServiceSyncByTokenCreate(t *testing.T) {
 	t.Parallel()
 
-	repository := &repositoryMock{}
-	adapter := &telegramAdapterMock{
-		profile: &TelegramBotProfileDTO{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"},
+	tx := &transactionMock{}
+	repository := &repositoryMock{tx: tx}
+	provider := &telegramProviderMock{
+		profile: &telegram.Bot{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"},
 	}
-	txManager := &transactionManagerMock{}
 
-	service := NewService(repository, adapter, txManager)
-	botEntity, err := service.SyncByToken(context.Background(), "777:VALID")
+	svc, err := NewService(repository, provider)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	botEntity, err := svc.SyncByToken(context.Background(), "777:VALID")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -101,8 +161,12 @@ func TestServiceSyncByTokenCreate(t *testing.T) {
 		t.Fatalf("expected bot to be saved")
 	}
 
-	if !txManager.called {
-		t.Fatalf("expected transaction manager to be called")
+	if tx.commits != 1 {
+		t.Fatalf("expected 1 commit, got %d", tx.commits)
+	}
+
+	if tx.rollbacks != 0 {
+		t.Fatalf("expected 0 rollbacks, got %d", tx.rollbacks)
 	}
 }
 
@@ -114,14 +178,18 @@ func TestServiceSyncByTokenUpdate(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	repository := &repositoryMock{storedBot: existingBot}
-	adapter := &telegramAdapterMock{
-		profile: &TelegramBotProfileDTO{ID: 777, Name: "New Name", Username: "new_bot"},
+	tx := &transactionMock{}
+	repository := &repositoryMock{storedBot: existingBot, tx: tx}
+	provider := &telegramProviderMock{
+		profile: &telegram.Bot{ID: 777, Name: "New Name", Username: "new_bot"},
 	}
-	txManager := &transactionManagerMock{}
 
-	service := NewService(repository, adapter, txManager)
-	botEntity, err := service.SyncByToken(context.Background(), "777:NEW")
+	svc, err := NewService(repository, provider)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	botEntity, err := svc.SyncByToken(context.Background(), "777:NEW")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -138,50 +206,69 @@ func TestServiceSyncByTokenUpdate(t *testing.T) {
 		t.Fatalf("expected token 777:NEW, got %q", botEntity.Token)
 	}
 
-	if !txManager.called {
-		t.Fatalf("expected transaction manager to be called")
+	if tx.commits != 1 {
+		t.Fatalf("expected 1 commit, got %d", tx.commits)
 	}
 }
 
 func TestServiceSyncByTokenErrors(t *testing.T) {
 	t.Parallel()
 
-	t.Run("telegram adapter error", func(t *testing.T) {
+	t.Run("telegram provider error", func(t *testing.T) {
 		t.Parallel()
 
 		expectedErr := errors.New("telegram failed")
-		service := NewService(&repositoryMock{}, &telegramAdapterMock{err: expectedErr}, &transactionManagerMock{})
+		svc, err := NewService(&repositoryMock{}, &telegramProviderMock{err: expectedErr})
+		if err != nil {
+			t.Fatalf("expected no constructor error, got %v", err)
+		}
 
-		_, err := service.SyncByToken(context.Background(), "777:BAD")
-		if !errors.Is(err, expectedErr) {
-			t.Fatalf("expected error %v, got %v", expectedErr, err)
+		_, gotErr := svc.SyncByToken(context.Background(), "777:BAD")
+		if !errors.Is(gotErr, expectedErr) {
+			t.Fatalf("expected error %v, got %v", expectedErr, gotErr)
 		}
 	})
 
-	t.Run("repository save error", func(t *testing.T) {
+	t.Run("begin error", func(t *testing.T) {
+		t.Parallel()
+
+		expectedErr := errors.New("begin failed")
+		repository := &repositoryMock{beginErr: expectedErr}
+		provider := &telegramProviderMock{profile: &telegram.Bot{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"}}
+		svc, err := NewService(repository, provider)
+		if err != nil {
+			t.Fatalf("expected no constructor error, got %v", err)
+		}
+
+		_, gotErr := svc.SyncByToken(context.Background(), "777:VALID")
+		if !errors.Is(gotErr, expectedErr) {
+			t.Fatalf("expected error %v, got %v", expectedErr, gotErr)
+		}
+	})
+
+	t.Run("repository save error triggers rollback", func(t *testing.T) {
 		t.Parallel()
 
 		expectedErr := errors.New("save failed")
-		repository := &repositoryMock{saveErr: expectedErr}
-		adapter := &telegramAdapterMock{profile: &TelegramBotProfileDTO{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"}}
-		service := NewService(repository, adapter, &transactionManagerMock{})
-
-		_, err := service.SyncByToken(context.Background(), "777:VALID")
-		if !errors.Is(err, expectedErr) {
-			t.Fatalf("expected error %v, got %v", expectedErr, err)
+		tx := &transactionMock{}
+		repository := &repositoryMock{saveErr: expectedErr, tx: tx}
+		provider := &telegramProviderMock{profile: &telegram.Bot{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"}}
+		svc, err := NewService(repository, provider)
+		if err != nil {
+			t.Fatalf("expected no constructor error, got %v", err)
 		}
-	})
 
-	t.Run("transaction manager error", func(t *testing.T) {
-		t.Parallel()
+		_, gotErr := svc.SyncByToken(context.Background(), "777:VALID")
+		if !errors.Is(gotErr, expectedErr) {
+			t.Fatalf("expected error %v, got %v", expectedErr, gotErr)
+		}
 
-		expectedErr := errors.New("tx failed")
-		txManager := &transactionManagerMock{err: expectedErr}
-		service := NewService(&repositoryMock{}, &telegramAdapterMock{profile: &TelegramBotProfileDTO{ID: 777, Name: "OIDC Bot", Username: "oidc_login_bot"}}, txManager)
+		if tx.rollbacks != 1 {
+			t.Fatalf("expected 1 rollback, got %d", tx.rollbacks)
+		}
 
-		_, err := service.SyncByToken(context.Background(), "777:VALID")
-		if !errors.Is(err, expectedErr) {
-			t.Fatalf("expected error %v, got %v", expectedErr, err)
+		if tx.commits != 0 {
+			t.Fatalf("expected 0 commits, got %d", tx.commits)
 		}
 	})
 }
